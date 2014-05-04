@@ -28,6 +28,7 @@ import org.jclouds.openstack.keystone.v2_0.domain.Service;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
+import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
@@ -35,6 +36,7 @@ import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
 import org.jclouds.openstack.nova.v2_0.features.ImageApi;
+import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -80,26 +82,24 @@ public class OpenstackClient implements CloudClient {
      */
     protected void connect() throws AmazonServiceException {
         try {
-                if(compute == null) {
-                    Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-                    String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                    context = ContextBuilder.newBuilder(connection.getProvider())
-                                    .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                                    .credentials(identity, connection.getPassword())
-                                    .modules(modules)
-                                    .buildView(ComputeServiceContext.class);
-                    Function<Credentials, Access> auth = context.utils().injector().getInstance(Key.get(new TypeLiteral<Function<Credentials, Access>>(){}));
-                    access = auth.apply(new Credentials.Builder<Credentials>().identity(identity).credential(connection.getPassword()).build());
-                    compute = context.getComputeService();
-                    nova = context.unwrap();
-                    zones = nova.getApi().getConfiguredZones();
-                    cinder = ContextBuilder.newBuilder(connection.getProvider())
-                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                            .credentials(identity, connection.getPassword())
-                            .buildApi(CinderApi.class);
+            if(compute == null) {
+                Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+                String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+                context = ContextBuilder.newBuilder(connection.getProvider())
+                                .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                                .credentials(identity, connection.getPassword())
+                                .modules(modules)
+                                .buildView(ComputeServiceContext.class);
+                compute = context.getComputeService();
+                nova = context.unwrap();
+                zones = nova.getApi().getConfiguredZones();
+                cinder = ContextBuilder.newBuilder(connection.getProvider())
+                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                        .credentials(identity, connection.getPassword())
+                        .buildApi(CinderApi.class);
             }
         } catch(NoSuchElementException e) {
-                throw new AmazonServiceException("Cannot connect to OpenStack", e);
+            throw new AmazonServiceException("Cannot connect to OpenStack", e);
         }
     }
 
@@ -186,13 +186,11 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	// Returns list of volume IDs that are attached to server instanceId.
 	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
-	public List<String> listAttachedVolumes(String instanceId,
-			boolean includeRoot) {
+	public List<String> listAttachedVolumes(String instanceId, boolean includeRoot) {
 		List<String> out = new ArrayList<String>();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
-		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))
-		{
+		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
 		}
 		
@@ -205,8 +203,7 @@ public class OpenstackClient implements CloudClient {
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
-		if(!result)
-		{
+		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
 		}
 	}
@@ -232,10 +229,16 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
-	public String createSecurityGroup(String instanceId, String groupName,
-			String description) {
-		// TODO Auto-generated method stub
-		return null;
+	public String createSecurityGroup(String instanceId, String groupName, String description) {
+		connect();
+		SecurityGroupApi v = (SecurityGroupApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
+        LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
+
+        //TODO add security group to the instance
+        SecurityGroup result = v.createWithDescription(groupName, description);
+        
+        disconnect();
+        return result.getId();
 	}
 
     /** {@inheritDoc} */
