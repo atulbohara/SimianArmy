@@ -11,6 +11,10 @@ import com.netflix.simianarmy.CloudClient;
 
 public class OpenstackClient implements CloudClient {
 
+	public OpenstackClient(OpenstackServiceConnection conn)
+	{
+		
+	}
 	@Override
 	public void terminateInstance(String instanceId) {
 		// TODO Auto-generated method stub
