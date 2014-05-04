@@ -3,6 +3,7 @@ package com.netflix.simianarmy.client.openstack;
 import static com.google.common.io.Closeables.closeQuietly;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -20,8 +21,10 @@ import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
+import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
+import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
@@ -174,18 +177,31 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
+	// Returns list of volume IDs that are attached to server instanceId.
+	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage 
 	public List<String> listAttachedVolumes(String instanceId,
 			boolean includeRoot) {
-		// TODO Auto-generated method stub
+		List<String> out = new ArrayList<String>();
+		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
+
+		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))
+		{
+			out.add(volumeAttachment.getVolumeId());
+		}
 		
-		return null;
+		return out;
 	}
 
     /** {@inheritDoc} */
 	@Override
+	//Detaches the volume. Openstack doesn't seem to have a force option for detaching, so the force parameter will be unused.
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
-		// TODO Auto-generated method stub
-		
+		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
+		Boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
+		if(!result)
+		{
+			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
+		}
 	}
 
 	/** {@inheritDoc} */
