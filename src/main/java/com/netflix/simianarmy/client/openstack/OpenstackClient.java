@@ -28,6 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
+import com.amazonaws.services.ec2.model.ModifyInstanceAttributeRequest;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -188,15 +192,37 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	public String createSecurityGroup(String instanceId, String groupName,
 			String description) {
-		// TODO Auto-generated method stub
-		return null;
+		connect();
+		
+
+        AmazonEC2 ec2Client = ec2Client();
+        CreateSecurityGroupRequest request = new CreateSecurityGroupRequest();
+        request.setGroupName(name);
+        request.setDescription(description);
+        request.setVpcId(vpcId);
+
+        LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
+
+        CreateSecurityGroupResult result = ec2Client.createSecurityGroup(request);
+        return result.getGroupId();
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void setInstanceSecurityGroups(String instanceId,
 			List<String> groupIds) {
-		// TODO Auto-generated method stub
+		Validate.notEmpty(instanceId);
+		connect();
+        LOGGER.info(String.format("Removing all security groups from instance %s in zone %s.", instanceId, connection.getZone()));
+        try {
+        	
+            
+        } catch (AmazonServiceException e) {
+            if (e.getErrorCode().equals("InvalidInstanceID.NotFound")) {
+                throw new NotFoundException("AWS instance " + instanceId + " not found", e);
+            }
+            throw e;
+        }
 		
 	}
 
