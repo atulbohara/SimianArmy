@@ -68,3 +68,7 @@ atlassian-ide-plugin.xml
 .nbattrs
 /bin
 /test-output
+/build
+/bin
+/bin
+/bin

@@ -23,6 +23,7 @@ import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
+import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
@@ -30,6 +31,7 @@ import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
 import org.jclouds.openstack.nova.v2_0.features.ImageApi;
+import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -227,18 +229,14 @@ public class OpenstackClient implements CloudClient {
 	public String createSecurityGroup(String instanceId, String groupName,
 			String description) {
 		connect();
-		
-
-        AmazonEC2 ec2Client = ec2Client();
-        CreateSecurityGroupRequest request = new CreateSecurityGroupRequest();
-        request.setGroupName(name);
-        request.setDescription(description);
-        request.setVpcId(vpcId);
-
+		SecurityGroupApi v = (SecurityGroupApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
 
-        CreateSecurityGroupResult result = ec2Client.createSecurityGroup(request);
-        return result.getGroupId();
+        //TODO add security group to the instance
+        SecurityGroup result = v.createWithDescription(groupName, description);
+        
+        disconnect();
+        return result.getId();
 	}
 
     /** {@inheritDoc} */
@@ -249,7 +247,7 @@ public class OpenstackClient implements CloudClient {
 		connect();
         LOGGER.info(String.format("Removing all security groups from instance %s in zone %s.", instanceId, connection.getZone()));
         try {
-        	
+        	//TODO
             
         } catch (AmazonServiceException e) {
             if (e.getErrorCode().equals("InvalidInstanceID.NotFound")) {
@@ -257,6 +255,7 @@ public class OpenstackClient implements CloudClient {
             }
             throw e;
         }
+        disconnect();
 		
 	}
 
