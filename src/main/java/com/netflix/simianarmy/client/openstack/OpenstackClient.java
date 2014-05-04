@@ -8,8 +8,9 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.ssh.SshClient;
 
 import com.netflix.simianarmy.CloudClient;
+import com.netflix.simianarmy.client.aws.AWSClient;
 
-public class OpenstackClient implements CloudClient {
+public class OpenstackClient extends AWSClient implements CloudClient {
 
 	public OpenstackClient(OpenstackServiceConnection conn)
 	{
@@ -84,12 +85,6 @@ public class OpenstackClient implements CloudClient {
 	}
 
 	@Override
-	public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public String findSecurityGroup(String instanceId, String groupName) {
 		// TODO Auto-generated method stub
 		return null;
@@ -100,12 +95,6 @@ public class OpenstackClient implements CloudClient {
 			String description) {
 		// TODO Auto-generated method stub
 		return null;
-	}
-
-	@Override
-	public boolean canChangeInstanceSecurityGroups(String instanceId) {
-		// TODO Auto-generated method stub
-		return false;
 	}
 
 	@Override
