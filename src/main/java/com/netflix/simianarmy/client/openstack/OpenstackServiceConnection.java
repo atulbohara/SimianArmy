@@ -8,6 +8,7 @@ public class OpenstackServiceConnection {
    private String password = null;
    private String provider = null;
    private String url = null;
+   private String zone = null;
    
    public OpenstackServiceConnection(MonkeyConfiguration config) {
 	   userName = config.getStr("simianarmy.client.openstack.userName");
@@ -15,6 +16,17 @@ public class OpenstackServiceConnection {
 	   provider = config.getStrOrElse("simianarmy.client.openstack.provider", "openstack-nova");
 	   tenantName = config.getStr("simianarmy.client.openstack.tenantName");
 	   password = config.getStr("simianarmy.client.openstack.password");
+	   zone = config.getStr("simianarmy.client.openstack.zone");
+   }
+   
+   public String getZone()
+   {
+	   return zone;
+   }
+   
+   public void setZone(String zone)
+   {
+	   this.zone = zone;
    }
    
    public String getUserName()
