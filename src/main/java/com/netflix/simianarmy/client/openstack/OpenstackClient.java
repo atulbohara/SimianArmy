@@ -69,26 +69,26 @@ public class OpenstackClient implements CloudClient {
      * @throws AmazonServiceException
      */
     protected void connect() throws AmazonServiceException {
-            try {
-                    if(compute == null) {
-                            Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-                            String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                            context = ContextBuilder.newBuilder(connection.getProvider())
-                                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                                            .credentials(identity, connection.getPassword())
-                                            .modules(modules)
-                                            .buildView(ComputeServiceContext.class);
-                            compute = context.getComputeService();
-                            nova = context.unwrap();
-                            zones = nova.getApi().getConfiguredZones();
-                            cinder = ContextBuilder.newBuilder(connection.getProvider())
+        try {
+                if(compute == null) {
+                    Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+                    String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+                    context = ContextBuilder.newBuilder(connection.getProvider())
                                     .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
                                     .credentials(identity, connection.getPassword())
-                                    .buildApi(CinderApi.class);
-                    }
-            } catch(NoSuchElementException e) {
-                    throw new AmazonServiceException("Cannot connect to OpenStack", e);
+                                    .modules(modules)
+                                    .buildView(ComputeServiceContext.class);
+                    compute = context.getComputeService();
+                    nova = context.unwrap();
+                    zones = nova.getApi().getConfiguredZones();
+                    cinder = ContextBuilder.newBuilder(connection.getProvider())
+                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                            .credentials(identity, connection.getPassword())
+                            .buildApi(CinderApi.class);
             }
+        } catch(NoSuchElementException e) {
+                throw new AmazonServiceException("Cannot connect to OpenStack", e);
+        }
     }
 
     /**
@@ -99,16 +99,14 @@ public class OpenstackClient implements CloudClient {
             closeQuietly(compute.getContext());
             compute = null;
         }
-            if(cinder != null) {
-            	try
-            	{
-            		cinder.close();
-            	}
-            	catch(IOException e)
-            	{
-            		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
-            	}
-            }
+        if(cinder != null) {
+        	try {
+        		cinder.close();
+        	}
+        	catch(IOException e) {
+        		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
+        	}
+        }
 	}
 
 	/** {@inheritDoc} */
@@ -162,25 +160,20 @@ public class OpenstackClient implements CloudClient {
 	public void deleteImage(String imageId) {
 		Validate.notEmpty(imageId);
         connect();
-        ImageApi v = (ImageApi)nova.getApi().getImageApiForZone(connection.getZone());
-        v.delete(imageId);
+        nova.getApi().getImageApiForZone(connection.getZone()).delete(imageId);
         disconnect();
 	}
 
     /** {@inheritDoc} */
 	@Override
-	public void createTagsForResources(Map<String, String> keyValueMap,
-			String... resourceIds) {
-		LOGGER.error("No tagging in OpenStack yet...");
-		
+	public void createTagsForResources(Map<String, String> keyValueMap, String... resourceIds) {
+		LOGGER.error("No tagging in OpenStack yet...");		
 	}
 
     /** {@inheritDoc} */
 	@Override
 	// Returns list of volume IDs that are attached to server instanceId.
 	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage 
-	public List<String> listAttachedVolumes(String instanceId,
-			boolean includeRoot) {
 		List<String> out = new ArrayList<String>();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
