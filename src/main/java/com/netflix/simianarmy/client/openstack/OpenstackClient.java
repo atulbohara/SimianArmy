@@ -1,14 +1,30 @@
 package com.netflix.simianarmy.client.openstack;
 
+import static com.google.common.io.Closeables.closeQuietly;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 import org.apache.commons.lang.Validate;
+import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
+import org.jclouds.openstack.nova.v2_0.NovaApi;
+import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
+import org.jclouds.openstack.nova.v2_0.domain.Server;
+import org.jclouds.openstack.nova.v2_0.features.ServerApi;
+import org.jclouds.rest.RestContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.AmazonServiceException;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
 
@@ -16,6 +32,11 @@ public class OpenstackClient implements CloudClient {
 	
 	private static final Logger LOGGER = LoggerFactory.getLogger(OpenstackClient.class);
 	private final OpenstackServiceConnection connection;
+	
+	private ComputeService compute = null;
+	private RestContext<NovaApi, NovaAsyncApi> nova = null;
+	private Set<String> zones = null;
+	private ComputeServiceContext context = null;
 
 	/**
 	 * Create the specific Client from the given connection information.
@@ -26,7 +47,48 @@ public class OpenstackClient implements CloudClient {
 		LOGGER.info("Instantiating OpenStack Client");
 	}
 	
-	protected void OpenStackC
+	protected void connect() throws AmazonServiceException
+	   {
+		   try
+		   {
+			   if(compute == null)
+			   {
+				   Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+				   String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+				   context = ContextBuilder.newBuilder(connection.getProvider())
+						   .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+						   .credentials(identity, connection.getPassword())
+						   .modules(modules)
+						   .buildView(ComputeServiceContext.class);
+				   compute = context.getComputeService();
+				   nova = context.unwrap();
+				   zones = nova.getApi().getConfiguredZones();
+			   }
+		   }
+		   catch(NoSuchElementException e)
+		   {
+			   throw new AmazonServiceException("Cannot connect to OpenStack", e);
+		   }
+	   }
+	   
+	protected void disconnect()
+	   {
+		   if(compute != null)
+		   {
+			   closeQuietly(compute.getContext());
+			   compute = null;
+		   }
+	   }
+	   
+	   protected Set<String> getZones() {
+		   return zones;
+	   }
+	   
+	   protected FluentIterable<? extends Server> getServersForZone(String zone)
+	   {
+	     ServerApi serverApi = nova.getApi().getServerApiForZone(zone);
+	     return serverApi.listInDetail().concat();
+	   }
 	
 	/** {@inheritDoc} */
 	@Override
