@@ -74,24 +74,24 @@ public class OpenstackClient implements CloudClient {
      */
     protected void connect() throws AmazonServiceException {
         try {
-                if(compute == null) {
-                    Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-                    String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                    context = ContextBuilder.newBuilder(connection.getProvider())
-                                    .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                                    .credentials(identity, connection.getPassword())
-                                    .modules(modules)
-                                    .buildView(ComputeServiceContext.class);
-                    compute = context.getComputeService();
-                    nova = context.unwrap();
-                    zones = nova.getApi().getConfiguredZones();
-                    cinder = ContextBuilder.newBuilder(connection.getProvider())
-                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                            .credentials(identity, connection.getPassword())
-                            .buildApi(CinderApi.class);
+            if(compute == null) {
+                Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+                String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+                context = ContextBuilder.newBuilder(connection.getProvider())
+                                .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                                .credentials(identity, connection.getPassword())
+                                .modules(modules)
+                                .buildView(ComputeServiceContext.class);
+                compute = context.getComputeService();
+                nova = context.unwrap();
+                zones = nova.getApi().getConfiguredZones();
+                cinder = ContextBuilder.newBuilder(connection.getProvider())
+                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                        .credentials(identity, connection.getPassword())
+                        .buildApi(CinderApi.class);
             }
         } catch(NoSuchElementException e) {
-                throw new AmazonServiceException("Cannot connect to OpenStack", e);
+            throw new AmazonServiceException("Cannot connect to OpenStack", e);
         }
     }
 
@@ -178,13 +178,11 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	// Returns list of volume IDs that are attached to server instanceId.
 	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
-	public List<String> listAttachedVolumes(String instanceId,
-			boolean includeRoot) {
+	public List<String> listAttachedVolumes(String instanceId, boolean includeRoot) {
 		List<String> out = new ArrayList<String>();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
-		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))
-		{
+		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
 		}
 		
@@ -197,8 +195,7 @@ public class OpenstackClient implements CloudClient {
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
-		if(!result)
-		{
+		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
 		}
 	}
