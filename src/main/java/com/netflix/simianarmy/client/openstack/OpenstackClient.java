@@ -26,6 +26,7 @@ import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
+import org.jclouds.openstack.nova.v2_0.features.ImageApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -91,10 +92,10 @@ public class OpenstackClient implements CloudClient {
      * Disconnect from the Openstack services
      */
     protected void disconnect() {
-            if(compute != null) {
-                    closeQuietly(compute.getContext());
-                    compute = null;
-            }
+        if(compute != null) {
+            closeQuietly(compute.getContext());
+            compute = null;
+        }
             if(cinder != null) {
             	try
             	{
@@ -102,18 +103,11 @@ public class OpenstackClient implements CloudClient {
             	}
             	catch(IOException e)
             	{
+            		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
             	}
             }
-    }
+	}
 
-    /**
-     * Does something :P
-     */
-    protected FluentIterable<? extends Server> getServersForZone(String zone) {
-                ServerApi serverApi = nova.getApi().getServerApiForZone(zone);
-                return serverApi.listInDetail().concat();
-        }
-	
 	/** {@inheritDoc} */
 	@Override
 	public void terminateInstance(String instanceId) {
@@ -130,35 +124,44 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public void deleteAutoScalingGroup(String asgName) {
+		Validate.notEmpty(asgName);
 		LOGGER.error("No AutoScalingGroups in OpenStack... Better wait for Heat to be released!");
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void deleteLaunchConfiguration(String launchConfigName) {
-		// TODO Auto-generated method stub
-		
+		Validate.notEmpty(launchConfigName);
+        LOGGER.error("No AutoScalingGroups in OpenStack... Better wait for Heat to be released!");
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void deleteVolume(String volumeId) {
-		// TODO Auto-generated method stub
-		
+		Validate.notEmpty(volumeId);
+        connect();
+        VolumeApi v = (VolumeApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
+        v.delete(volumeId);
+        disconnect();
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void deleteSnapshot(String snapshotId) {
-		// TODO Auto-generated method stub
-		
+		Validate.notEmpty(snapshotId);
+		connect();
+		cinder.getSnapshotApiForZone(connection.getZone()).delete(snapshotId);
+		disconnect();
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void deleteImage(String imageId) {
-		// TODO Auto-generated method stub
-		
+		Validate.notEmpty(imageId);
+        connect();
+        ImageApi v = (ImageApi)nova.getApi().getImageApiForZone(connection.getZone());
+        v.delete(imageId);
+        disconnect();
 	}
 
     /** {@inheritDoc} */
@@ -194,7 +197,7 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public String getJcloudsId(String instanceId) {
-		return connection.zone + "/" + instanceId;
+		return connection.getZone() + "/" + instanceId;
 	}
 
     /** {@inheritDoc} */
@@ -220,6 +223,13 @@ public class OpenstackClient implements CloudClient {
 		
 	}
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean canChangeInstanceSecurityGroups(String instanceId) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
 	/** {@inheritDoc} */
     @Override
     public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
@@ -237,7 +247,7 @@ public class OpenstackClient implements CloudClient {
 
         return ssh;
     }
-
+    
     private NodeMetadata getJcloudsNode(ComputeService computeService, String jcloudsId) {
         // Work around a jclouds bug / documentation issue...
         // TODO: Figure out what's broken, and eliminate this function
@@ -261,13 +271,6 @@ public class OpenstackClient implements CloudClient {
         }
         NodeMetadata node = Iterables.getOnlyElement(nodes);
         return node;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean canChangeInstanceSecurityGroups(String instanceId) {
-            // TODO Auto-generated method stub
-            return false;
     }
 
 }
