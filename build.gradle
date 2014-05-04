@@ -36,7 +36,7 @@ dependencies {
 	//compile 'org.jclouds.api:openstack-swift:1.6.0'
 	compile 'org.jclouds.api:openstack-cinder:1.6.0'
 	//compile 'org.jclouds.api:openstack-trove:1.6.0'
-	//compile 'org.jclouds.api:openstack-glance:1.6.0'
+	compile 'org.jclouds.labs:openstack-glance:1.6.0'
 	//compile 'org.jclouds.api:openstack-marconi:1.6.0'
 	//compile 'org.jclouds.api:openstack-neutron:1.6.0'
 	
