@@ -1,18 +1,20 @@
 package com.netflix.simianarmy.client.openstack;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.Validate;
+import org.jclouds.compute.ComputeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.simianarmy.client.aws.AWSClient;
 import com.netflix.simianarmy.CloudClient;
-import com.netflix.simianarmy.client.aws.AWSClient;
+import com.netflix.simianarmy.NotFoundException;
 
-public class OpenstackClient extends AWSClient implements CloudClient {
+public class OpenstackClient implements CloudClient {
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(AWSClient.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OpenstackClient.class);
 	private final OpenstackServiceConnection connection;
 
 	/**
@@ -20,15 +22,26 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 	 * @param the connection parameters
 	 */
 	public OpenstackClient(OpenstackServiceConnection conn) {
-		super("region-" + conn.getUrl());
 		this.connection = conn;
 		LOGGER.info("Instantiating OpenStack Client");
 	}
 	
+	protected void OpenStackC
+	
+	/** {@inheritDoc} */
 	@Override
 	public void terminateInstance(String instanceId) {
-		// TODO Auto-generated method stub
-		
+		Validate.notEmpty(instanceId);
+        LOGGER.info(String.format("Terminating instance %s in region %s.", instanceId, region));
+        try {
+        	openstackClient
+            ec2Client().terminateInstances(new TerminateInstancesRequest(Arrays.asList(instanceId)));
+        } catch (AmazonServiceException e) {
+            if (e.getErrorCode().equals("InvalidInstanceID.NotFound")) {
+                throw new NotFoundException("AWS instance " + instanceId + " not found", e);
+            }
+            throw e;
+        }		
 	}
 
 	@Override
