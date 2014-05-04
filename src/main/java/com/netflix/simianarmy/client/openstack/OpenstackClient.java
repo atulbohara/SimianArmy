@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.io.IOException;
 import java.util.Set;
 
 import org.apache.commons.lang.Validate;
@@ -22,6 +23,9 @@ import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
+import org.jclouds.openstack.cinder.v1.CinderApi;
+import org.jclouds.openstack.cinder.v1.features.VolumeApi;
+import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -43,8 +47,10 @@ public class OpenstackClient implements CloudClient {
 	
 	private ComputeService compute = null;
 	private RestContext<NovaApi, NovaAsyncApi> nova = null;
+	
 	private Set<String> zones = null;
 	private ComputeServiceContext context = null;
+	private CinderApi cinder = null;
 
 	/**
 	 * Create the specific Client from the given connection information.
@@ -71,6 +77,10 @@ public class OpenstackClient implements CloudClient {
                             compute = context.getComputeService();
                             nova = context.unwrap();
                             zones = nova.getApi().getConfiguredZones();
+                            cinder = ContextBuilder.newBuilder(connection.getProvider())
+                                    .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                                    .credentials(identity, connection.getPassword())
+                                    .buildApi(CinderApi.class);
                     }
             } catch(NoSuchElementException e) {
                     throw new AmazonServiceException("Cannot connect to OpenStack", e);
@@ -84,6 +94,15 @@ public class OpenstackClient implements CloudClient {
             if(compute != null) {
                     closeQuietly(compute.getContext());
                     compute = null;
+            }
+            if(cinder != null) {
+            	try
+            	{
+            		cinder.close();
+            	}
+            	catch(IOException e)
+            	{
+            	}
             }
     }
 
@@ -146,7 +165,7 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	public void createTagsForResources(Map<String, String> keyValueMap,
 			String... resourceIds) {
-		// TODO Auto-generated method stub
+		LOGGER.error("No tagging in OpenStack yet...");
 		
 	}
 
@@ -155,6 +174,7 @@ public class OpenstackClient implements CloudClient {
 	public List<String> listAttachedVolumes(String instanceId,
 			boolean includeRoot) {
 		// TODO Auto-generated method stub
+		
 		return null;
 	}
 
