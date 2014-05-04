@@ -221,8 +221,7 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
-	public String createSecurityGroup(String instanceId, String groupName,
-			String description) {
+	public String createSecurityGroup(String instanceId, String groupName, String description) {
 		connect();
 		
 
