@@ -3,19 +3,28 @@ package com.netflix.simianarmy.client.openstack;
 import java.util.List;
 import java.util.Map;
 
-import org.jclouds.compute.ComputeService;
-import org.jclouds.domain.LoginCredentials;
-import org.jclouds.ssh.SshClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.netflix.simianarmy.client.aws.AWSClient;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.client.aws.AWSClient;
 
 public class OpenstackClient extends AWSClient implements CloudClient {
+	
+	private static final Logger LOGGER = LoggerFactory.getLogger(AWSClient.class);
+	private final OpenstackServiceConnection connection;
 
-	public OpenstackClient(OpenstackServiceConnection conn)
-	{
-		
+	/**
+	 * Create the specific Client from the given connection information.
+	 * @param the connection parameters
+	 */
+	public OpenstackClient(OpenstackServiceConnection conn) {
+		super("region-" + conn.getUrl());
+		this.connection = conn;
+		LOGGER.info("Instantiating OpenStack Client");
 	}
+	
 	@Override
 	public void terminateInstance(String instanceId) {
 		// TODO Auto-generated method stub
