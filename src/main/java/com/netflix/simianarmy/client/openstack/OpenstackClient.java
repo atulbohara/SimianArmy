@@ -12,12 +12,14 @@ import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.rest.RestContext;
+import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,98 +46,98 @@ public class OpenstackClient implements CloudClient {
 	 */
 	public OpenstackClient(OpenstackServiceConnection conn) {
 		this.connection = conn;
-		LOGGER.info("Instantiating OpenStack Client");
 	}
 	
-	protected void connect() throws AmazonServiceException
-	   {
-		   try
-		   {
-			   if(compute == null)
-			   {
-				   Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-				   String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-				   context = ContextBuilder.newBuilder(connection.getProvider())
-						   .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-						   .credentials(identity, connection.getPassword())
-						   .modules(modules)
-						   .buildView(ComputeServiceContext.class);
-				   compute = context.getComputeService();
-				   nova = context.unwrap();
-				   zones = nova.getApi().getConfiguredZones();
-			   }
-		   }
-		   catch(NoSuchElementException e)
-		   {
-			   throw new AmazonServiceException("Cannot connect to OpenStack", e);
-		   }
-	   }
-	   
-	protected void disconnect()
-	   {
-		   if(compute != null)
-		   {
-			   closeQuietly(compute.getContext());
-			   compute = null;
-		   }
-	   }
-	   
-	   protected Set<String> getZones() {
-		   return zones;
-	   }
-	   
-	   protected FluentIterable<? extends Server> getServersForZone(String zone)
-	   {
-	     ServerApi serverApi = nova.getApi().getServerApiForZone(zone);
-	     return serverApi.listInDetail().concat();
-	   }
+        /**
+         * Connect to the Openstack services
+         * @throws AmazonServiceException
+         */
+        protected void connect() throws AmazonServiceException {
+                try {
+                        if(compute == null) {
+                                Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+                                String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+                                context = ContextBuilder.newBuilder(connection.getProvider())
+                                                .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                                                .credentials(identity, connection.getPassword())
+                                                .modules(modules)
+                                                .buildView(ComputeServiceContext.class);
+                                compute = context.getComputeService();
+                                nova = context.unwrap();
+                                zones = nova.getApi().getConfiguredZones();
+                        }
+                } catch(NoSuchElementException e) {
+                        throw new AmazonServiceException("Cannot connect to OpenStack", e);
+                }
+        }
+
+        /**
+         * Disconnect from the Openstack services
+         */
+        protected void disconnect() {
+                if(compute != null) {
+                        closeQuietly(compute.getContext());
+                        compute = null;
+                }
+        }
+
+        /**
+         * Does something :P
+         */
+        protected FluentIterable<? extends Server> getServersForZone(String zone) {
+                ServerApi serverApi = nova.getApi().getServerApiForZone(zone);
+                return serverApi.listInDetail().concat();
+        }
 	
 	/** {@inheritDoc} */
 	@Override
 	public void terminateInstance(String instanceId) {
 		Validate.notEmpty(instanceId);
-        LOGGER.info(String.format("Terminating instance %s in region %s.", instanceId, region));
+                connect();
         try {
-        	openstackClient
-            ec2Client().terminateInstances(new TerminateInstancesRequest(Arrays.asList(instanceId)));
-        } catch (AmazonServiceException e) {
-            if (e.getErrorCode().equals("InvalidInstanceID.NotFound")) {
-                throw new NotFoundException("AWS instance " + instanceId + " not found", e);
-            }
-            throw e;
-        }		
+		nova.getApi().getServerApiForZone(connection.zone).stop(instanceId);
+        } catch (UnsupportedOperationException e) {
+            throw new NotFoundException("Instance " + instanceId + " not found", e);
+        }
+        disconnect();
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void deleteAutoScalingGroup(String asgName) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void deleteLaunchConfiguration(String launchConfigName) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void deleteVolume(String volumeId) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void deleteSnapshot(String snapshotId) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void deleteImage(String imageId) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void createTagsForResources(Map<String, String> keyValueMap,
 			String... resourceIds) {
@@ -143,6 +145,7 @@ public class OpenstackClient implements CloudClient {
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public List<String> listAttachedVolumes(String instanceId,
 			boolean includeRoot) {
@@ -150,30 +153,35 @@ public class OpenstackClient implements CloudClient {
 		return null;
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
 		// TODO Auto-generated method stub
 		
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public ComputeService getJcloudsComputeService() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public String getJcloudsId(String instanceId) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public String findSecurityGroup(String instanceId, String groupName) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public String createSecurityGroup(String instanceId, String groupName,
 			String description) {
@@ -181,11 +189,26 @@ public class OpenstackClient implements CloudClient {
 		return null;
 	}
 
+        /** {@inheritDoc} */
 	@Override
 	public void setInstanceSecurityGroups(String instanceId,
 			List<String> groupIds) {
 		// TODO Auto-generated method stub
 		
 	}
+
+        /** {@inheritDoc} */
+        @Override
+        public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
+                // TODO Auto-generated method stub
+                return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean canChangeInstanceSecurityGroups(String instanceId) {
+                // TODO Auto-generated method stub
+                return false;
+        }
 
 }
