@@ -1,29 +1,5 @@
 package com.netflix.simianarmy.client.openstack;
 
-import static com.google.common.io.Closeables.closeQuietly;
-
-import java.io.Closeable;
-import java.util.Set;
-import java.util.Properties;
-import java.util.NoSuchElementException;
-
-import org.jclouds.Constants;
-import org.jclouds.ContextBuilder;
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.ComputeServiceContext;
-import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
-import org.jclouds.openstack.keystone.v2_0.config.CredentialTypes;
-import org.jclouds.openstack.nova.v2_0.NovaApi;
-import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
-import org.jclouds.openstack.nova.v2_0.domain.Server;
-import org.jclouds.openstack.nova.v2_0.features.ServerApi;
-import org.jclouds.rest.RestContext;
-import org.jclouds.openstack.keystone.v2_0.config.KeystoneProperties;
-
-import com.amazonaws.AmazonServiceException;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableSet;
-import com.google.inject.Module;
 import com.netflix.simianarmy.MonkeyConfiguration;
 
 public class OpenstackServiceConnection {
