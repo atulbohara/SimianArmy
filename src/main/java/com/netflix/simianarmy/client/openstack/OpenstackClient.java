@@ -95,7 +95,7 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(instanceId);
                 connect();
         try {
-		nova.getApi().getServerApiForZone(connection.zone).stop(instanceId);
+        	nova.getApi().getServerApiForZone(connection.getZone()).stop(instanceId);
         } catch (UnsupportedOperationException e) {
             throw new NotFoundException("Instance " + instanceId + " not found", e);
         }
