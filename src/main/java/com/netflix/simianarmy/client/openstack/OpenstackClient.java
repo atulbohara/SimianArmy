@@ -26,6 +26,7 @@ import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
+import org.jclouds.openstack.nova.v2_0.features.ImageApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -136,15 +137,16 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public void deleteLaunchConfiguration(String launchConfigName) {
-		// TODO Auto-generated method stub
-		
+                LOGGER.error("No AutoScalingGroups in OpenStack... Better wait for Heat to be released!");
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void deleteVolume(String volumeId) {
-		// TODO Auto-generated method stub
-		
+                connect();
+                VolumeApi v = (VolumeApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
+                v.delete(volumeId);
+                disconnect();
 	}
 
     /** {@inheritDoc} */
@@ -157,8 +159,10 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public void deleteImage(String imageId) {
-		// TODO Auto-generated method stub
-		
+                connect();
+                ImageApi v = (ImageApi)nova.getApi().getImageApiForZone(connection.getZone());
+                v.delete(imageId);
+                disconnect();
 	}
 
     /** {@inheritDoc} */
