@@ -173,7 +173,9 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	// Returns list of volume IDs that are attached to server instanceId.
-	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage 
+	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
+	public List<String> listAttachedVolumes(String instanceId,
+			boolean includeRoot) {
 		List<String> out = new ArrayList<String>();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
@@ -190,7 +192,7 @@ public class OpenstackClient implements CloudClient {
 	//Detaches the volume. Openstack doesn't seem to have a force option for detaching, so the force parameter will be unused.
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
-		Boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
+		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
 		if(!result)
 		{
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
