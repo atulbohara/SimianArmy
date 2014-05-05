@@ -42,8 +42,9 @@ import com.google.common.io.Closeables;
 import com.google.inject.Module;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
+import com.netflix.simianarmy.client.aws.AWSClient;
 
-public class OpenstackClient implements CloudClient {
+public class OpenstackClient extends AWSClient implements CloudClient {
 	
 	private static final Logger LOGGER = LoggerFactory.getLogger(OpenstackClient.class);
 	private final OpenstackServiceConnection connection;
@@ -60,6 +61,7 @@ public class OpenstackClient implements CloudClient {
 	 * @param the connection parameters
 	 */
 	public OpenstackClient(OpenstackServiceConnection conn) {
+		super(conn.getZone());
 		this.connection = conn;
 	}
 	
@@ -325,7 +327,7 @@ public class OpenstackClient implements CloudClient {
     }
 
 	/** {@inheritDoc} */
-    @Override
+    /*@Override
     public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
         ComputeService computeService = getJcloudsComputeService();
 
@@ -365,6 +367,6 @@ public class OpenstackClient implements CloudClient {
         }
         NodeMetadata node = Iterables.getOnlyElement(nodes);
         return node;
-    }
+    }*/
 
 }
