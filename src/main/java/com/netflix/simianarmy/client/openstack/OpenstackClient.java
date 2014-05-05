@@ -45,9 +45,6 @@ import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
 import com.google.common.base.Function;
-import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
-import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
-import com.amazonaws.services.ec2.model.ModifyInstanceAttributeRequest;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -94,8 +91,6 @@ public class OpenstackClient implements CloudClient {
                                 .credentials(identity, connection.getPassword())
                                 .modules(modules)
                                 .buildView(ComputeServiceContext.class);
-                    Function<Credentials, Access> auth = context.utils().injector().getInstance(Key.get(new TypeLiteral<Function<Credentials, Access>>(){}));
-                    access = auth.apply(new Credentials.Builder<Credentials>().identity(identity).credential(connection.getPassword()).build());
                 compute = context.getComputeService();
                 nova = context.unwrap();
                 zones = nova.getApi().getConfiguredZones();
@@ -190,31 +185,32 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
-	// Returns list of volume IDs that are attached to server instanceId.
-	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
 	public List<String> listAttachedVolumes(String instanceId, boolean includeRoot) {
+		// Returns list of volume IDs that are attached to server instanceId.
+		// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
+		Validate.notEmpty(instanceId);
 		List<String> out = new ArrayList<String>();
-		connect();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
 		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
 		}
-		disconnect();
+		
 		return out;
 	}
 
     /** {@inheritDoc} */
 	@Override
-	//Detaches the volume. Openstack doesn't seem to have a force option for detaching, so the force parameter will be unused.
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
+		//Detaches the volume. Openstack doesn't seem to have a force option for detaching, so the force parameter will be unused.
+		Validate.notEmpty(instanceId);
+		Validate.notEmpty(volumeId);
 		connect();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
 		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
 		}
-		disconnect();
 	}
 
 	/** {@inheritDoc} */
@@ -226,12 +222,15 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public String getJcloudsId(String instanceId) {
+		Validate.notEmpty(instanceId);
 		return connection.getZone() + "/" + instanceId;
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public String findSecurityGroup(String instanceId, String groupName) {
+		Validate.notEmpty(instanceId);
+		Validate.notEmpty(groupName);
 		String id = null;
 		connect();
 		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
@@ -250,8 +249,11 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public String createSecurityGroup(String instanceId, String groupName, String description) {
+		Validate.notEmpty(instanceId);
+		Validate.notEmpty(groupName);
+		Validate.notEmpty(description);
 		connect();
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		SecurityGroupApi v = (SecurityGroupApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
 
         //TODO add security group to the instance
@@ -263,15 +265,14 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
-	public void setInstanceSecurityGroups(String instanceId,
-			List<String> groupIds) {
+	public void setInstanceSecurityGroups(String instanceId, List<String> groupIds) {
+		Validate.notEmpty(instanceId);
+		Validate.notEmpty(groupIds);
 		connect();
 		String endpoint = "";
-		for (Service service: access)
-		{
+		for (Service service: access) {
 	    	  //System.out.println(" Service = " + service.getName());
-	    	  if(service.getName().startsWith("nova"))
-	    	  {
+	    	  if(service.getName().startsWith("nova")) {
 	    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
 	    		  break;
 	    	  }
@@ -281,29 +282,24 @@ public class OpenstackClient implements CloudClient {
 		//Get all security groups for instance
 		ServerWithSecurityGroups serverWithSG = nova.getApi().getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
 		//Remove all security groups from the instance
-		for(String secGroup: serverWithSG.getSecurityGroupNames())
-		{
+		for(String secGroup: serverWithSG.getSecurityGroupNames()) {
 			HashMultimap<String, String> headers = HashMultimap.create();
 			headers.put("Accept", "application/json");
 			headers.put("Content-Type", "application/json");
 			headers.put("X-Auth-Token", access.getToken().getId());
-			
 			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + secGroup + "\"}}").build();
 			nova.utils().http().invoke(request);
 		}
 		//Add specified groups to the instance
 		
-		for(String groupId: groupIds)
-		{
+		for(String groupId: groupIds) {
 			HashMultimap<String, String> headers = HashMultimap.create();
 			headers.put("Accept", "application/json");
 			headers.put("Content-Type", "application/json");
 			headers.put("X-Auth-Token", access.getToken().getId());
-			//Assuming members of groupIds are ID strings, not names
-			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + v.get(groupId).getName() + "\"}}").build();
+			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupId + "\"}}").build();
 			nova.utils().http().invoke(request);
 		}
-		disconnect();
 	}
 
     /** {@inheritDoc} */
