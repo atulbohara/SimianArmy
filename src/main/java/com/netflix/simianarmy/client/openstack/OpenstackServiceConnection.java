@@ -16,7 +16,7 @@ public class OpenstackServiceConnection {
 	   provider = config.getStrOrElse("simianarmy.client.openstack.provider", "openstack-nova");
 	   tenantName = config.getStr("simianarmy.client.openstack.tenantName");
 	   password = config.getStr("simianarmy.client.openstack.password");
-	   zone = config.getStr("simianarmy.client.openstack.zone");
+	   zone = config.getStrOrElse("simianarmy.client.openstack.zone", "regionOne");
    }
    
    public String getZone()
