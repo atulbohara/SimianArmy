@@ -1,8 +1,5 @@
 package com.netflix.simianarmy.client.openstack;
 
-import static com.google.common.io.Closeables.closeQuietly;
-
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +15,6 @@ import org.jclouds.compute.Utils;
 import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
-import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.http.HttpRequest;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
@@ -27,32 +23,23 @@ import org.jclouds.openstack.keystone.v2_0.domain.Endpoint;
 import org.jclouds.openstack.keystone.v2_0.domain.Service;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
-import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
 import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
-import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.ServerWithSecurityGroups;
 import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
-import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
-import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
-import org.jclouds.openstack.nova.v2_0.features.ImageApi;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
-import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.inject.Key;
+import com.google.common.io.Closeables;
 import com.google.inject.Module;
-import com.google.inject.TypeLiteral;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
 
@@ -62,9 +49,8 @@ public class OpenstackClient implements CloudClient {
 	private final OpenstackServiceConnection connection;
 	
 	private ComputeService compute = null;
-	private RestContext<NovaApi, NovaAsyncApi> nova = null;
+	private NovaApi nova = null;
 	
-	private Set<String> zones = null;
 	private ComputeServiceContext context = null;
 	private Access access;
 	private CinderApi cinder = null;
@@ -86,18 +72,14 @@ public class OpenstackClient implements CloudClient {
             if(compute == null) {
                 Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
                 String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                context = ContextBuilder.newBuilder(connection.getProvider())
+                ContextBuilder cb = ContextBuilder.newBuilder(connection.getProvider())
                                 .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
                                 .credentials(identity, connection.getPassword())
-                                .modules(modules)
-                                .buildView(ComputeServiceContext.class);
+                                .modules(modules);
+                context = cb.buildView(ComputeServiceContext.class);
                 compute = context.getComputeService();
-                nova = context.unwrap();
-                zones = nova.getApi().getConfiguredZones();
-                cinder = ContextBuilder.newBuilder(connection.getProvider())
-                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                        .credentials(identity, connection.getPassword())
-                        .buildApi(CinderApi.class);
+                nova = cb.buildApi(NovaApi.class);
+                cinder = cb.buildApi(CinderApi.class);
             }
         } catch(NoSuchElementException e) {
             throw new AmazonServiceException("Cannot connect to OpenStack", e);
@@ -108,13 +90,18 @@ public class OpenstackClient implements CloudClient {
      * Disconnect from the Openstack services
      */
     protected void disconnect() {
-        if(compute != null) {
-            closeQuietly(compute.getContext());
-            compute = null;
+        if(nova != null) {
+        	try {
+	            Closeables.close(nova, true);
+	            nova = null;
+        	}
+        	catch(IOException e) {
+        		LOGGER.error("Error disconnecting nova: " + e.getMessage());
+        	}
         }
         if(cinder != null) {
         	try {
-        		cinder.close();
+        		Closeables.close(cinder, true);
         	}
         	catch(IOException e) {
         		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
@@ -128,7 +115,7 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(instanceId);
         connect();
         try {
-        	nova.getApi().getServerApiForZone(connection.getZone()).stop(instanceId);
+        	nova.getServerApiForZone(connection.getZone()).stop(instanceId);
         } catch (UnsupportedOperationException e) {
             throw new NotFoundException("Instance " + instanceId + " not found", e);
         }
@@ -154,7 +141,7 @@ public class OpenstackClient implements CloudClient {
 	public void deleteVolume(String volumeId) {
 		Validate.notEmpty(volumeId);
         connect();
-        VolumeApi v = (VolumeApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
+        VolumeApi v = (VolumeApi)nova.getVolumeExtensionForZone(connection.getZone());
         v.delete(volumeId);
         disconnect();
 	}
@@ -173,7 +160,7 @@ public class OpenstackClient implements CloudClient {
 	public void deleteImage(String imageId) {
 		Validate.notEmpty(imageId);
         connect();
-        nova.getApi().getImageApiForZone(connection.getZone()).delete(imageId);
+        nova.getImageApiForZone(connection.getZone()).delete(imageId);
         disconnect();
 	}
 
@@ -190,7 +177,7 @@ public class OpenstackClient implements CloudClient {
 		// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
 		Validate.notEmpty(instanceId);
 		List<String> out = new ArrayList<String>();
-		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
+		VolumeAttachmentApi volumeAttachmentApi = nova.getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
 		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
@@ -206,7 +193,7 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(instanceId);
 		Validate.notEmpty(volumeId);
 		connect();
-		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
+		VolumeAttachmentApi volumeAttachmentApi = nova.getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
 		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
@@ -233,7 +220,7 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(groupName);
 		String id = null;
 		connect();
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		SecurityGroupApi v = nova.getSecurityGroupExtensionForZone(connection.getZone()).get();
 		for(SecurityGroup group: v.list())
 		{
 			if(group.getName() == groupName)
@@ -253,7 +240,7 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(groupName);
 		Validate.notEmpty(description);
 		connect();
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		SecurityGroupApi v = nova.getSecurityGroupExtensionForZone(connection.getZone()).get();
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
 
         SecurityGroup result = v.createWithDescription(groupName, description);
@@ -271,10 +258,8 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(groupIds);
 		connect();
 		
-		//Get security group API
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
 		//Get all security groups for instance
-		ServerWithSecurityGroups serverWithSG = nova.getApi().getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
+		ServerWithSecurityGroups serverWithSG = nova.getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
 		//Remove all security groups from the instance
 		for(String secGroup: serverWithSG.getSecurityGroupNames()) {
 			removeSecurityGroupFromInstanceByName(instanceId, secGroup);
@@ -302,13 +287,13 @@ public class OpenstackClient implements CloudClient {
 		headers.put("Content-Type", "application/json");
 		headers.put("X-Auth-Token", access.getToken().getId());
 		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
-		nova.utils().http().invoke(request);
+		context.utils().http().invoke(request);
 	}
 	
 	//This assumes you have already done a call to connect()
 	private void addSecurityGroupToInstanceById(String instanceId, String groupId)
 	{
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		SecurityGroupApi v = nova.getSecurityGroupExtensionForZone(connection.getZone()).get();
 		String groupName = v.get(groupId).getName();
 		addSecurityGroupToInstanceByName(instanceId, groupName);
 	}
@@ -329,7 +314,7 @@ public class OpenstackClient implements CloudClient {
 		headers.put("Content-Type", "application/json");
 		headers.put("X-Auth-Token", access.getToken().getId());
 		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
-		nova.utils().http().invoke(request);
+		context.utils().http().invoke(request);
 	}
 	
     /** {@inheritDoc} */
