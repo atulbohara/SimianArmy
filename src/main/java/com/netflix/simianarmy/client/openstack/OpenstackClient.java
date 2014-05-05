@@ -28,13 +28,16 @@ import org.jclouds.openstack.keystone.v2_0.domain.Service;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
+import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
+import org.jclouds.openstack.nova.v2_0.domain.ServerWithSecurityGroups;
 import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
 import org.jclouds.openstack.nova.v2_0.features.ImageApi;
+import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.rest.RestContext;
 import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
@@ -42,6 +45,9 @@ import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
 import com.google.common.base.Function;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
+import com.amazonaws.services.ec2.model.ModifyInstanceAttributeRequest;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -80,26 +86,26 @@ public class OpenstackClient implements CloudClient {
      */
     protected void connect() throws AmazonServiceException {
         try {
-                if(compute == null) {
-                    Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-                    String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                    context = ContextBuilder.newBuilder(connection.getProvider())
-                                    .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                                    .credentials(identity, connection.getPassword())
-                                    .modules(modules)
-                                    .buildView(ComputeServiceContext.class);
+            if(compute == null) {
+                Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+                String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+                context = ContextBuilder.newBuilder(connection.getProvider())
+                                .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                                .credentials(identity, connection.getPassword())
+                                .modules(modules)
+                                .buildView(ComputeServiceContext.class);
                     Function<Credentials, Access> auth = context.utils().injector().getInstance(Key.get(new TypeLiteral<Function<Credentials, Access>>(){}));
                     access = auth.apply(new Credentials.Builder<Credentials>().identity(identity).credential(connection.getPassword()).build());
-                    compute = context.getComputeService();
-                    nova = context.unwrap();
-                    zones = nova.getApi().getConfiguredZones();
-                    cinder = ContextBuilder.newBuilder(connection.getProvider())
-                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                            .credentials(identity, connection.getPassword())
-                            .buildApi(CinderApi.class);
+                compute = context.getComputeService();
+                nova = context.unwrap();
+                zones = nova.getApi().getConfiguredZones();
+                cinder = ContextBuilder.newBuilder(connection.getProvider())
+                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                        .credentials(identity, connection.getPassword())
+                        .buildApi(CinderApi.class);
             }
         } catch(NoSuchElementException e) {
-                throw new AmazonServiceException("Cannot connect to OpenStack", e);
+            throw new AmazonServiceException("Cannot connect to OpenStack", e);
         }
     }
 
@@ -186,16 +192,15 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	// Returns list of volume IDs that are attached to server instanceId.
 	// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
-	public List<String> listAttachedVolumes(String instanceId,
-			boolean includeRoot) {
+	public List<String> listAttachedVolumes(String instanceId, boolean includeRoot) {
 		List<String> out = new ArrayList<String>();
+		connect();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
-		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))
-		{
+		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
 		}
-		
+		disconnect();
 		return out;
 	}
 
@@ -203,12 +208,13 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	//Detaches the volume. Openstack doesn't seem to have a force option for detaching, so the force parameter will be unused.
 	public void detachVolume(String instanceId, String volumeId, boolean force) {
+		connect();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getApi().getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 		boolean result = volumeAttachmentApi.detachVolumeFromServer(volumeId, instanceId);
-		if(!result)
-		{
+		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
 		}
+		disconnect();
 	}
 
 	/** {@inheritDoc} */
@@ -232,35 +238,61 @@ public class OpenstackClient implements CloudClient {
 
     /** {@inheritDoc} */
 	@Override
-	public String createSecurityGroup(String instanceId, String groupName,
-			String description) {
-		// TODO Auto-generated method stub
-		return null;
+	public String createSecurityGroup(String instanceId, String groupName, String description) {
+		connect();
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+        LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
+
+        //TODO add security group to the instance
+        SecurityGroup result = v.createWithDescription(groupName, description);
+        
+        disconnect();
+        return result.getId();
 	}
 
     /** {@inheritDoc} */
 	@Override
 	public void setInstanceSecurityGroups(String instanceId,
 			List<String> groupIds) {
+		connect();
+		String endpoint = "";
+		for (Service service: access)
+		{
+	    	  //System.out.println(" Service = " + service.getName());
+	    	  if(service.getName().startsWith("nova"))
+	    	  {
+	    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
+	    		  break;
+	    	  }
+		}
+		//Get security group API
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		//Get all security groups for instance
+		ServerWithSecurityGroups serverWithSG = nova.getApi().getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
+		//Remove all security groups from the instance
+		for(String secGroup: serverWithSG.getSecurityGroupNames())
+		{
+			HashMultimap<String, String> headers = HashMultimap.create();
+			headers.put("Accept", "application/json");
+			headers.put("Content-Type", "application/json");
+			headers.put("X-Auth-Token", access.getToken().getId());
+			
+			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + secGroup + "\"}}").build();
+			nova.utils().http().invoke(request);
+		}
+		//Add specified groups to the instance
+		
 		for(String groupId: groupIds)
 		{
 			HashMultimap<String, String> headers = HashMultimap.create();
 			headers.put("Accept", "application/json");
 			headers.put("Content-Type", "application/json");
 			headers.put("X-Auth-Token", access.getToken().getId());
-			String endpoint = "";
-			for (Service service: access)
-			{
-		    	  //System.out.println(" Service = " + service.getName());
-		    	  if(service.getName().startsWith("nova"))
-		    	  {
-		    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
-		    		  break;
-		    	  }
-			}
-			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupId + "\"}}").build();
+			//Assuming members of groupIds are ID strings, not names
+			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + v.get(groupId).getName() + "\"}}").build();
 			nova.utils().http().invoke(request);
 		}
+		disconnect();
 	}
 
     /** {@inheritDoc} */
