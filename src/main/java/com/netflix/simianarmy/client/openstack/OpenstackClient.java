@@ -325,7 +325,17 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     	LOGGER.info("This feature requires Heat to fail. Returning true.");
         return true;
     }
-
+    
+    public NovaApi getNovaApi()
+    {
+    	return nova;
+    }
+    
+    public OpenstackServiceConnection getServiceConnection()
+    {
+    	return connection;
+    }
+    
 	/** {@inheritDoc} */
     /*@Override
     public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
