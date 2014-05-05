@@ -2,8 +2,6 @@ package com.netflix.simianarmy.client.openstack;
 
 import com.netflix.simianarmy.MonkeyConfiguration;
 import com.netflix.simianarmy.basic.BasicChaosMonkeyContext;
-import com.netflix.simianarmy.chaos.ChaosCrawler;
-import com.netflix.simianarmy.client.aws.chaos.ASGChaosCrawler;
 import com.netflix.simianarmy.client.openstack.OpenstackChaosCrawler;
 
 public class OpenstackContext extends BasicChaosMonkeyContext{

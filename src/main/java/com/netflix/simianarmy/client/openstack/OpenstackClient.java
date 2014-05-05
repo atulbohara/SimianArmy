@@ -5,17 +5,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.io.IOException;
-import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
-import org.jclouds.compute.Utils;
-import org.jclouds.compute.domain.ComputeMetadata;
-import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.NodeMetadataBuilder;
-import org.jclouds.domain.LoginCredentials;
 import org.jclouds.http.HttpRequest;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.keystone.v2_0.domain.Access;
@@ -29,15 +23,13 @@ import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
-import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.common.io.ByteSource;
 import com.google.common.io.Closeables;
 import com.google.inject.Module;
 import com.netflix.simianarmy.CloudClient;
@@ -288,7 +280,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 		headers.put("X-Auth-Token", access.getToken().getId());
-		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
+		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload(ByteSource.wrap(("{\"removeSecurityGroup\": {\"name\": \"" + groupName + "\"}}").getBytes())).build();
 		context.utils().http().invoke(request);
 	}
 	
@@ -315,7 +307,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 		headers.put("X-Auth-Token", access.getToken().getId());
-		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
+		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload(ByteSource.wrap(("{\"addSecurityGroup\": {\"name\": \"" + groupName + "\"}}").getBytes())).build();
 		context.utils().http().invoke(request);
 	}
 	

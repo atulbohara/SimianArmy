@@ -3,14 +3,10 @@ package com.netflix.simianarmy.client.openstack;
 import java.util.LinkedList;
 import java.util.List;
 
-import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
-import com.amazonaws.services.autoscaling.model.Instance;
 import com.netflix.simianarmy.basic.chaos.BasicInstanceGroup;
 import com.netflix.simianarmy.chaos.ChaosCrawler;
-import com.netflix.simianarmy.chaos.ChaosCrawler.InstanceGroup;
 import com.netflix.simianarmy.client.aws.AWSClient;
 import com.netflix.simianarmy.client.aws.chaos.ASGChaosCrawler;
-import com.netflix.simianarmy.client.aws.chaos.ASGChaosCrawler.Types;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 
 public class OpenstackChaosCrawler extends ASGChaosCrawler implements ChaosCrawler {
