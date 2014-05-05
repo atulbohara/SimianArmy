@@ -5,12 +5,12 @@ import com.netflix.simianarmy.basic.BasicChaosMonkeyContext;
 import com.netflix.simianarmy.client.openstack.OpenstackChaosCrawler;
 
 public class OpenstackContext extends BasicChaosMonkeyContext{
-	private OpenstackClient client;
-	public OpenstackContext()
-	{
-		client = null;
-		createClient();
-	}
+    private OpenstackClient client;
+    public OpenstackContext() {
+            client = null;
+            createClient();
+    }
+
 	@Override
     protected void createClient() {
         MonkeyConfiguration config = configuration();

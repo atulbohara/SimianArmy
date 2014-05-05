@@ -2,6 +2,9 @@ package com.netflix.simianarmy.client.openstack;
 
 import com.netflix.simianarmy.MonkeyConfiguration;
 
+/**
+ * Contains metadata for the OpenstackClient
+ */
 public class OpenstackServiceConnection {
    private String userName = null;
    private String tenantName = null;
@@ -19,63 +22,51 @@ public class OpenstackServiceConnection {
 	   zone = config.getStrOrElse("simianarmy.client.openstack.zone", "regionOne");
    }
    
-   public String getZone()
-   {
+   public String getZone() {
 	   return zone;
    }
    
-   public void setZone(String zone)
-   {
+   public void setZone(String zone) {
 	   this.zone = zone;
    }
    
-   public String getUserName()
-   {
+   public String getUserName() {
 	   return userName;
    }
    
-   public void setUserName(String userName)
-   {
+   public void setUserName(String userName) {
 	   this.userName = userName;
    }
    
-   public String getPassword()
-   {
+   public String getPassword() {
 	   return password;
    }
    
-   public void setPassword(String password)
-   {
+   public void setPassword(String password) {
 	   this.password = password;
    }
    
-   public String getTenantName()
-   {
+   public String getTenantName() {
 	   return tenantName;
    }
    
-   public void setTenantName(String tenantName)
-   {
+   public void setTenantName(String tenantName) {
 	   this.tenantName = tenantName;
    }
    
-   public String getUrl()
-   {
+   public String getUrl() {
 	   return url;
    }
    
-   public void setUrl(String url)
-   {
+   public void setUrl(String url) {
 	   this.url = url;
    }
    
-   public String getProvider()
-   {
+   public String getProvider() {
 	   return provider;
    }
    
-   public void setProvider(String provider)
-   {
+   public void setProvider(String provider) {
 	   this.provider = provider;
    }
 }
