@@ -232,8 +232,19 @@ public class OpenstackClient implements CloudClient {
     /** {@inheritDoc} */
 	@Override
 	public String findSecurityGroup(String instanceId, String groupName) {
-		// TODO Auto-generated method stub
-		return null;
+		String id = null;
+		connect();
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		for(SecurityGroup group: v.list())
+		{
+			if(group.getName() == groupName)
+			{
+				id = group.getId();
+				break;
+			}
+		}
+		disconnect();
+		return id;
 	}
 
     /** {@inheritDoc} */
