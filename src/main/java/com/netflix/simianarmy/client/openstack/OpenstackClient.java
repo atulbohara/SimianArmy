@@ -18,8 +18,13 @@ import org.jclouds.compute.Utils;
 import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
+import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LoginCredentials;
+import org.jclouds.http.HttpRequest;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
+import org.jclouds.openstack.keystone.v2_0.domain.Access;
+import org.jclouds.openstack.keystone.v2_0.domain.Endpoint;
+import org.jclouds.openstack.keystone.v2_0.domain.Service;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.NovaAsyncApi;
@@ -36,11 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
+import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
 
@@ -54,6 +63,7 @@ public class OpenstackClient implements CloudClient {
 	
 	private Set<String> zones = null;
 	private ComputeServiceContext context = null;
+	private Access access;
 	private CinderApi cinder = null;
 
 	/**
@@ -78,6 +88,8 @@ public class OpenstackClient implements CloudClient {
                                     .credentials(identity, connection.getPassword())
                                     .modules(modules)
                                     .buildView(ComputeServiceContext.class);
+                    Function<Credentials, Access> auth = context.utils().injector().getInstance(Key.get(new TypeLiteral<Function<Credentials, Access>>(){}));
+                    access = auth.apply(new Credentials.Builder<Credentials>().identity(identity).credential(connection.getPassword()).build());
                     compute = context.getComputeService();
                     nova = context.unwrap();
                     zones = nova.getApi().getConfiguredZones();
@@ -230,8 +242,25 @@ public class OpenstackClient implements CloudClient {
 	@Override
 	public void setInstanceSecurityGroups(String instanceId,
 			List<String> groupIds) {
-		// TODO Auto-generated method stub
-		
+		for(String groupId: groupIds)
+		{
+			HashMultimap<String, String> headers = HashMultimap.create();
+			headers.put("Accept", "application/json");
+			headers.put("Content-Type", "application/json");
+			headers.put("X-Auth-Token", access.getToken().getId());
+			String endpoint = "";
+			for (Service service: access)
+			{
+		    	  //System.out.println(" Service = " + service.getName());
+		    	  if(service.getName().startsWith("nova"))
+		    	  {
+		    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
+		    		  break;
+		    	  }
+			}
+			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupId + "\"}}").build();
+			nova.utils().http().invoke(request);
+		}
 	}
 
     /** {@inheritDoc} */
