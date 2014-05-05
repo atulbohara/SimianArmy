@@ -253,11 +253,12 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(groupName);
 		Validate.notEmpty(description);
 		connect();
-		SecurityGroupApi v = (SecurityGroupApi)nova.getApi().getVolumeExtensionForZone(connection.getZone());
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
 
-        //TODO add security group to the instance
         SecurityGroup result = v.createWithDescription(groupName, description);
+        //Add security group to the instance
+        addSecurityGroupToInstanceByName(instanceId, groupName);
         
         disconnect();
         return result.getId();
@@ -269,6 +270,25 @@ public class OpenstackClient implements CloudClient {
 		Validate.notEmpty(instanceId);
 		Validate.notEmpty(groupIds);
 		connect();
+		
+		//Get security group API
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		//Get all security groups for instance
+		ServerWithSecurityGroups serverWithSG = nova.getApi().getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
+		//Remove all security groups from the instance
+		for(String secGroup: serverWithSG.getSecurityGroupNames()) {
+			removeSecurityGroupFromInstanceByName(instanceId, secGroup);
+		}
+		//Add specified groups to the instance
+		
+		for(String groupId: groupIds) {
+			addSecurityGroupToInstanceById(instanceId, groupId);
+		}
+	}
+	
+	//This assumes you have already done a call to connect()
+	private void removeSecurityGroupFromInstanceByName(String instanceId, String groupName)
+	{
 		String endpoint = "";
 		for (Service service: access) {
 	    	  //System.out.println(" Service = " + service.getName());
@@ -277,36 +297,46 @@ public class OpenstackClient implements CloudClient {
 	    		  break;
 	    	  }
 		}
-		//Get security group API
-		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
-		//Get all security groups for instance
-		ServerWithSecurityGroups serverWithSG = nova.getApi().getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
-		//Remove all security groups from the instance
-		for(String secGroup: serverWithSG.getSecurityGroupNames()) {
-			HashMultimap<String, String> headers = HashMultimap.create();
-			headers.put("Accept", "application/json");
-			headers.put("Content-Type", "application/json");
-			headers.put("X-Auth-Token", access.getToken().getId());
-			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + secGroup + "\"}}").build();
-			nova.utils().http().invoke(request);
-		}
-		//Add specified groups to the instance
-		
-		for(String groupId: groupIds) {
-			HashMultimap<String, String> headers = HashMultimap.create();
-			headers.put("Accept", "application/json");
-			headers.put("Content-Type", "application/json");
-			headers.put("X-Auth-Token", access.getToken().getId());
-			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupId + "\"}}").build();
-			nova.utils().http().invoke(request);
-		}
+		HashMultimap<String, String> headers = HashMultimap.create();
+		headers.put("Accept", "application/json");
+		headers.put("Content-Type", "application/json");
+		headers.put("X-Auth-Token", access.getToken().getId());
+		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
+		nova.utils().http().invoke(request);
 	}
-
+	
+	//This assumes you have already done a call to connect()
+	private void addSecurityGroupToInstanceById(String instanceId, String groupId)
+	{
+		SecurityGroupApi v = nova.getApi().getSecurityGroupExtensionForZone(connection.getZone()).get();
+		String groupName = v.get(groupId).getName();
+		addSecurityGroupToInstanceByName(instanceId, groupName);
+	}
+	
+	//This assumes you have already done a call to connect()
+	private void addSecurityGroupToInstanceByName(String instanceId, String groupName)
+	{
+		String endpoint = "";
+		for (Service service: access) {
+	    	  //System.out.println(" Service = " + service.getName());
+	    	  if(service.getName().startsWith("nova")) {
+	    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
+	    		  break;
+	    	  }
+		}
+		HashMultimap<String, String> headers = HashMultimap.create();
+		headers.put("Accept", "application/json");
+		headers.put("Content-Type", "application/json");
+		headers.put("X-Auth-Token", access.getToken().getId());
+		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupName + "\"}}").build();
+		nova.utils().http().invoke(request);
+	}
+	
     /** {@inheritDoc} */
     @Override
     public boolean canChangeInstanceSecurityGroups(String instanceId) {
-        // TODO Auto-generated method stub
-        return false;
+    	LOGGER.info("This feature requires Heat to fail. Returning true.");
+        return true;
     }
 
 	/** {@inheritDoc} */
