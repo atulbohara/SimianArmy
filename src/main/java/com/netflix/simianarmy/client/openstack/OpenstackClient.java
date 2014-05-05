@@ -287,7 +287,6 @@ public class OpenstackClient implements CloudClient {
 			headers.put("Accept", "application/json");
 			headers.put("Content-Type", "application/json");
 			headers.put("X-Auth-Token", access.getToken().getId());
-			
 			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"removeSecurityGroup\": {\"name\": \"" + secGroup + "\"}}").build();
 			nova.utils().http().invoke(request);
 		}
@@ -298,14 +297,6 @@ public class OpenstackClient implements CloudClient {
 			headers.put("Accept", "application/json");
 			headers.put("Content-Type", "application/json");
 			headers.put("X-Auth-Token", access.getToken().getId());
-			String endpoint = "";
-			for (Service service: access) {
-		    	  //System.out.println(" Service = " + service.getName());
-		    	  if(service.getName().startsWith("nova")) {
-		    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
-		    		  break;
-		    	  }
-			}
 			HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload("{\"addSecurityGroup\": {\"name\": \"" + groupId + "\"}}").build();
 			nova.utils().http().invoke(request);
 		}
