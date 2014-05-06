@@ -4,6 +4,7 @@ import static com.google.inject.name.Names.bindProperties;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -71,6 +72,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     private ComputeServiceContext context = null;
     private Access access;
     private CinderApi cinder = null;
+    private HashMap<String, ArrayList<String> > endpoints;
 
     /**
      * Create the specific Client from the given connection information.
@@ -117,6 +119,15 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                     // "http://141.142.237.5:5000/v2.0/"
                     .credentials(identity, connection.getPassword())
                     .modules(modules).buildApi(CinderApi.class);
+            endpoints = new HashMap<String, ArrayList<String> >();
+            for (final Service service : access) {
+                // System.out.println(" Service = " + service.getName());
+            	endpoints.put(service.getName(), new ArrayList<String>());
+                for(final Endpoint endpoint: service)
+                {
+                	endpoints.get(service.getName()).add(endpoint.getPublicURL().toString());
+                }
+            }
 
         } catch (final NoSuchElementException e) {
             throw new AmazonServiceException("Cannot connect to OpenStack", e);
@@ -141,7 +152,12 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                     + e.getMessage());
         }
     }
-
+    
+    public HashMap<String, ArrayList<String>> getEndpoints()
+    {
+    	return endpoints;
+    }
+    
     /** {@inheritDoc} */
     @Override
     public void terminateInstance(final String instanceId) {
@@ -372,15 +388,8 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     // This assumes you have already done a call to connect()
     private void modifySecurityGroupOnInstanceByName(final String instanceId,
             final String groupName, final String operation) {
-        String endpoint = "";
-        for (final Service service : access) {
-            // System.out.println(" Service = " + service.getName());
-            if (service.getName().startsWith("nova")) {
-                endpoint = ((Endpoint) service.toArray()[0]).getPublicURL()
-                        .toString();
-                break;
-            }
-        }
+        String endpoint = (String) endpoints.get("nova").toArray()[0];
+        
         final HashMultimap<String, String> headers = HashMultimap.create();
         headers.put("Accept", "application/json");
         headers.put("Content-Type", "application/json");

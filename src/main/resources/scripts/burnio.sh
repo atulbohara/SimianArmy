@@ -9,4 +9,4 @@ do
 done
 EOF
 
-nohup /bin/bash /tmp/loopburnio.sh &
+sudo nohup /bin/bash /tmp/loopburnio.sh &
