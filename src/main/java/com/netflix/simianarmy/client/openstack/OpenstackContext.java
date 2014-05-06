@@ -2,19 +2,27 @@ package com.netflix.simianarmy.client.openstack;
 
 import com.netflix.simianarmy.MonkeyConfiguration;
 import com.netflix.simianarmy.basic.BasicChaosMonkeyContext;
-import com.netflix.simianarmy.client.openstack.OpenstackChaosCrawler;
 
-public class OpenstackContext extends BasicChaosMonkeyContext{
+/**
+ * OpenstackContext.
+ */
+public class OpenstackContext extends BasicChaosMonkeyContext {
     private OpenstackClient client;
+
+    /**
+     * Init context.
+     */
     public OpenstackContext() {
-            client = null;
-            createClient();
+        client = null;
+        createClient();
     }
 
-	@Override
+    /** {@inheritDoc} */
+    @Override
     protected void createClient() {
-        MonkeyConfiguration config = configuration();
-        final OpenstackServiceConnection conn = new OpenstackServiceConnection(config);
+        final MonkeyConfiguration config = configuration();
+        final OpenstackServiceConnection conn = new OpenstackServiceConnection(
+                config);
         client = new OpenstackClient(conn);
         setCloudClient(client);
         setChaosCrawler(new OpenstackChaosCrawler(client));
