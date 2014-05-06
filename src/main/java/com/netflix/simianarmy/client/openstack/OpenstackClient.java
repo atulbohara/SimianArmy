@@ -283,6 +283,8 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 	//This assumes you have already done a call to connect()
 	private void removeSecurityGroupFromInstanceByName(String instanceId, String groupName)
 	{
+		ServerWithSecurityGroups serverWithSG = nova.getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
+		if(!serverWithSG.getSecurityGroupNames().contains(groupName)) return;
 		modifySecurityGroupOnInstanceByName(instanceId, groupName, "removeSecurityGroup");
 	}
 	
@@ -297,6 +299,8 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 	//This assumes you have already done a call to connect()
 	private void addSecurityGroupToInstanceByName(String instanceId, String groupName)
 	{
+		ServerWithSecurityGroups serverWithSG = nova.getServerWithSecurityGroupsExtensionForZone(connection.getZone()).get().get(instanceId);
+		if(serverWithSG.getSecurityGroupNames().contains(groupName)) return;
 		modifySecurityGroupOnInstanceByName(instanceId, groupName, "addSecurityGroup");
 	}
 	
