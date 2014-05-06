@@ -5,12 +5,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.compute.Utils;
+import org.jclouds.compute.domain.ComputeMetadata;
+import org.jclouds.compute.domain.NodeMetadata;
+import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.Credentials;
+import org.jclouds.domain.LoginCredentials;
 import org.jclouds.http.HttpRequest;
 import org.jclouds.io.payloads.BaseMutableContentMetadata;
 import org.jclouds.io.payloads.ByteSourcePayload;
@@ -26,6 +32,7 @@ import org.jclouds.openstack.nova.v2_0.domain.ServerWithSecurityGroups;
 import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
+import org.jclouds.ssh.SshClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +40,8 @@ import com.amazonaws.AmazonServiceException;
 import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Closeables;
 import com.google.inject.Key;
@@ -383,6 +392,56 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                 .endpoint(endpoint + "/servers/" + instanceId + "/action")
                 .headers(headers).payload(bsp).build();
         context.utils().http().invoke(request);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SshClient connectSsh(final String instanceId,
+            final LoginCredentials credentials) {
+        connect();
+        final ComputeService computeService = getJcloudsComputeService();
+
+        final String jcloudsId = getJcloudsId(instanceId);
+        NodeMetadata node = getJcloudsNode(computeService, jcloudsId);
+
+        node = NodeMetadataBuilder.fromNodeMetadata(node)
+                .credentials(credentials).build();
+
+        final Utils utils = computeService.getContext().utils();
+        final SshClient ssh = utils.sshForNode().apply(node);
+
+        ssh.connect();
+        disconnect();
+        return ssh;
+    }
+
+    private NodeMetadata getJcloudsNode(final ComputeService computeService,
+            final String jcloudsId) {
+        // Work around a jclouds bug / documentation issue...
+        // TODO: Figure out what's broken, and eliminate this function
+
+        // This should work (?):
+        // Set<NodeMetadata> nodes =
+        // computeService.listNodesByIds(Collections.singletonList(jcloudsId));
+
+        final Set<NodeMetadata> nodes = Sets.newHashSet();
+        for (final ComputeMetadata n : computeService.listNodes()) {
+            if (jcloudsId.equals(n.getId())) {
+                nodes.add((NodeMetadata) n);
+            }
+        }
+
+        if (nodes.isEmpty()) {
+            OpenstackClient.LOGGER.warn("Unable to find jclouds node: {}",
+                    jcloudsId);
+            for (final ComputeMetadata n : computeService.listNodes()) {
+                OpenstackClient.LOGGER.info("Did find node: {}", n);
+            }
+            throw new IllegalStateException(
+                    "Unable to find node using jclouds: " + jcloudsId);
+        }
+        final NodeMetadata node = Iterables.getOnlyElement(nodes);
+        return node;
     }
 
     /** {@inheritDoc} */
