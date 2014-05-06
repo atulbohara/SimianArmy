@@ -11,4 +11,4 @@ do
 done
 EOF
 
-nohup /bin/bash /tmp/kill_loop.sh &
+sudo nohup /bin/bash /tmp/kill_loop.sh &
