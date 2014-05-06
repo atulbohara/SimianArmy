@@ -30,7 +30,7 @@ public class OpenstackChaosCrawler extends ASGChaosCrawler implements ChaosCrawl
         List<InstanceGroup> list = new LinkedList<InstanceGroup>();
         awsClient.connect();
         String zone = awsClient.getServiceConnection().getZone();
-        InstanceGroup ig = new BasicInstanceGroup(zone, Types.ASG, zone);
+        InstanceGroup ig = new BasicInstanceGroup(awsClient.getServiceConnection().getTenantName(), Types.ASG, zone);
         for(Server server: awsClient.getNovaApi().getServerApiForZone(zone).listInDetail().concat()) {
         	ig.addInstance(server.getId());
         }

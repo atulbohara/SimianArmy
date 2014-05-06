@@ -63,21 +63,19 @@ public class OpenstackClient extends AWSClient implements CloudClient {
      */
     protected void connect() throws AmazonServiceException {
         try {
-            if(compute == null) {
-                Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
-                String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
-                ContextBuilder cb = ContextBuilder.newBuilder(connection.getProvider())
-                                .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                                .credentials(identity, connection.getPassword())
-                                .modules(modules);
-                context = cb.buildView(ComputeServiceContext.class);
-                compute = context.getComputeService();
-                nova = cb.buildApi(NovaApi.class);
-                cinder = ContextBuilder.newBuilder("openstack-cinder")
-                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
-                        .credentials(identity, connection.getPassword())
-                        .modules(modules).buildApi(CinderApi.class);
-            }
+            Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
+            String identity = connection.getTenantName() + ":" + connection.getUserName(); // tenantName:userName
+            ContextBuilder cb = ContextBuilder.newBuilder(connection.getProvider())
+                            .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                            .credentials(identity, connection.getPassword())
+                            .modules(modules);
+            context = cb.buildView(ComputeServiceContext.class);
+            compute = context.getComputeService();
+            nova = cb.buildApi(NovaApi.class);
+            cinder = ContextBuilder.newBuilder("openstack-cinder")
+                    .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                    .credentials(identity, connection.getPassword())
+                    .modules(modules).buildApi(CinderApi.class);
         } catch(NoSuchElementException e) {
             throw new AmazonServiceException("Cannot connect to OpenStack", e);
         }
@@ -87,23 +85,19 @@ public class OpenstackClient extends AWSClient implements CloudClient {
      * Disconnect from the Openstack services
      */
     protected void disconnect() {
-        if(nova != null) {
-        	try {
-	            Closeables.close(nova, true);
-	            nova = null;
-        	}
-        	catch(IOException e) {
-        		LOGGER.error("Error disconnecting nova: " + e.getMessage());
-        	}
-        }
-        if(cinder != null) {
-        	try {
-        		Closeables.close(cinder, true);
-        	}
-        	catch(IOException e) {
-        		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
-        	}
-        }
+    	try {
+            Closeables.close(nova, true);
+            nova = null;
+    	}
+    	catch(IOException e) {
+    		LOGGER.error("Error disconnecting nova: " + e.getMessage());
+    	}
+    	try {
+    		Closeables.close(cinder, true);
+    	}
+    	catch(IOException e) {
+    		LOGGER.error("Error disconnecting cinder: " + e.getMessage());
+    	}
 	}
 
 	/** {@inheritDoc} */
