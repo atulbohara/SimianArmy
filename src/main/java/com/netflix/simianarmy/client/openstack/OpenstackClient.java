@@ -10,6 +10,7 @@ import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.domain.Credentials;
 import org.jclouds.http.HttpRequest;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.cinder.v1.CinderApi;
@@ -27,11 +28,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
+import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Closeables;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
 import com.netflix.simianarmy.client.aws.AWSClient;
@@ -71,11 +75,14 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                             .modules(modules);
             context = cb.buildView(ComputeServiceContext.class);
             compute = context.getComputeService();
+            Function<Credentials, Access> auth = context.utils().injector().getInstance(Key.get(new TypeLiteral<Function<Credentials, Access>>(){}));
+            access = auth.apply(new Credentials.Builder<Credentials>().identity(identity).credential(connection.getPassword()).build());
             nova = cb.buildApi(NovaApi.class);
             cinder = ContextBuilder.newBuilder("openstack-cinder")
                     .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
                     .credentials(identity, connection.getPassword())
                     .modules(modules).buildApi(CinderApi.class);
+        
         } catch(NoSuchElementException e) {
             throw new AmazonServiceException("Cannot connect to OpenStack", e);
         }
