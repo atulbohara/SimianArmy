@@ -12,6 +12,8 @@ import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.domain.Credentials;
 import org.jclouds.http.HttpRequest;
+import org.jclouds.io.payloads.BaseMutableContentMetadata;
+import org.jclouds.io.payloads.ByteSourcePayload;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.features.VolumeApi;
@@ -244,7 +246,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
         for(SecurityGroup group: v.list())
         {
-        	if(group.getName() == groupName)
+        	if(group.getName().startsWith(groupName))
         	{
         		addSecurityGroupToInstanceByName(instanceId, groupName);
         		return group.getId();
@@ -281,20 +283,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 	//This assumes you have already done a call to connect()
 	private void removeSecurityGroupFromInstanceByName(String instanceId, String groupName)
 	{
-		String endpoint = "";
-		for (Service service: access) {
-	    	  //System.out.println(" Service = " + service.getName());
-	    	  if(service.getName().startsWith("nova")) {
-	    		  endpoint = ((Endpoint)service.toArray()[0]).getPublicURL().toString();
-	    		  break;
-	    	  }
-		}
-		HashMultimap<String, String> headers = HashMultimap.create();
-		headers.put("Accept", "application/json");
-		headers.put("Content-Type", "application/json");
-		headers.put("X-Auth-Token", access.getToken().getId());
-		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload(ByteSource.wrap(("{\"removeSecurityGroup\": {\"name\": \"" + groupName + "\"}}").getBytes())).build();
-		context.utils().http().invoke(request);
+		modifySecurityGroupOnInstanceByName(instanceId, groupName, "removeSecurityGroup");
 	}
 	
 	//This assumes you have already done a call to connect()
@@ -308,6 +297,12 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 	//This assumes you have already done a call to connect()
 	private void addSecurityGroupToInstanceByName(String instanceId, String groupName)
 	{
+		modifySecurityGroupOnInstanceByName(instanceId, groupName, "addSecurityGroup");
+	}
+	
+	//This assumes you have already done a call to connect()
+	private void modifySecurityGroupOnInstanceByName(String instanceId, String groupName, String operation)
+	{
 		String endpoint = "";
 		for (Service service: access) {
 	    	  //System.out.println(" Service = " + service.getName());
@@ -320,7 +315,16 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 		headers.put("X-Auth-Token", access.getToken().getId());
-		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload(ByteSource.wrap(("{\"addSecurityGroup\": {\"name\": \"" + groupName + "\"}}").getBytes())).build();
+		String requestString = "{\"" + operation + "\": {\"name\": \"" + groupName + "\"}}";
+		ByteSource bs = ByteSource.wrap(requestString.getBytes());
+		LOGGER.info("ByteSource = " + bs.toString());
+		ByteSourcePayload bsp = new ByteSourcePayload(bs);
+		BaseMutableContentMetadata meta = new BaseMutableContentMetadata();
+		meta.setContentLength((long)requestString.getBytes().length);
+		headers.put("Content-Length", String.valueOf((requestString.getBytes().length)));
+		bsp.setContentMetadata(meta);
+		LOGGER.info("ByteSourcePayload = " + bsp.toString());
+		HttpRequest request = HttpRequest.builder().method("POST").endpoint(endpoint + "/servers/" + instanceId + "/action").headers(headers).payload(bsp).build();
 		context.utils().http().invoke(request);
 	}
 	
