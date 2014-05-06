@@ -1,7 +1,9 @@
 package com.netflix.simianarmy.chaos;
 
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.List;
 
 import org.jclouds.ssh.SshClient;
@@ -50,10 +52,13 @@ public class FailOpenstackEndpointChaosType extends ChaosType {
         {
         	try {
         		URL endpointURL = new URL(endpoint);
-        		ssh.exec("sudo iptables -A OUTPUT -d " + endpointURL.getHost() + " -p tcp -m tcp --dport " + endpointURL.getPort() + " -j DROP");
-        		ssh.exec("sudo iptables -A OUTPUT -d " + endpointURL.getHost() + " -p udp -m udp --dport " + endpointURL.getPort() + " -j DROP");
+        		InetAddress address = InetAddress.getByName(endpointURL.getHost());
+        		ssh.exec("sudo iptables -A OUTPUT -d " + address.getHostAddress() + " -p tcp -m tcp --dport " + endpointURL.getPort() + " -j DROP");
+        		ssh.exec("sudo iptables -A OUTPUT -d " + address.getHostAddress() + " -p udp -m udp --dport " + endpointURL.getPort() + " -j DROP");
 
 			} catch (MalformedURLException e) {
+				e.printStackTrace();
+			} catch (UnknownHostException e) {
 				e.printStackTrace();
 			}
         }
