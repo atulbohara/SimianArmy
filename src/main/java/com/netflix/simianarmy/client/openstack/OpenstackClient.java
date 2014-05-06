@@ -242,7 +242,14 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		connect();
 		SecurityGroupApi v = nova.getSecurityGroupExtensionForZone(connection.getZone()).get();
         LOGGER.info(String.format("Creating OpenStack security group %s.", groupName));
-
+        for(SecurityGroup group: v.list())
+        {
+        	if(group.getName() == groupName)
+        	{
+        		addSecurityGroupToInstanceByName(instanceId, groupName);
+        		return group.getId();
+        	}
+        }
         SecurityGroup result = v.createWithDescription(groupName, description);
         //Add security group to the instance
         addSecurityGroupToInstanceByName(instanceId, groupName);
