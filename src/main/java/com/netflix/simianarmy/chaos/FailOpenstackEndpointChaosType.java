@@ -45,7 +45,7 @@ public class FailOpenstackEndpointChaosType extends ChaosType {
     public void apply(ChaosInstance instance) {
     	OpenstackClient cloudClient = (OpenstackClient) instance.getCloudClient();
         String instanceId = instance.getInstanceId();
-        SshClient ssh = cloudClient.connectSsh(instanceId, instance.getSshConfig().getCredentials());
+        SshClient ssh = instance.connectSsh();
         for(String endpoint: cloudClient.getEndpoints().get(endpointType))
         {
         	try {
