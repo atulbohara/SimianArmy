@@ -1,17 +1,19 @@
 package com.netflix.simianarmy.client.openstack;
 
+import static com.google.inject.name.Names.bindProperties;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
-import org.jclouds.compute.Utils;
 import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -33,6 +35,8 @@ import org.jclouds.openstack.nova.v2_0.domain.VolumeAttachment;
 import org.jclouds.openstack.nova.v2_0.extensions.SecurityGroupApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.ssh.SshClient;
+import org.jclouds.ssh.jsch.JschSshClient;
+import org.jclouds.ssh.jsch.config.JschSshClientModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +48,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Closeables;
+import com.google.common.net.HostAndPort;
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
@@ -399,6 +407,13 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     public SshClient connectSsh(final String instanceId,
             final LoginCredentials credentials) {
         connect();
+        final Injector i = Guice.createInjector(new JschSshClientModule(),
+                new AbstractModule() {
+                    @Override
+                    protected void configure() {
+                        bindProperties(binder(), new Properties());
+                    }
+                });
         final ComputeService computeService = getJcloudsComputeService();
 
         final String jcloudsId = getJcloudsId(instanceId);
@@ -407,9 +422,12 @@ public class OpenstackClient extends AWSClient implements CloudClient {
         node = NodeMetadataBuilder.fromNodeMetadata(node)
                 .credentials(credentials).build();
 
-        final Utils utils = computeService.getContext().utils();
-        final SshClient ssh = utils.sshForNode().apply(node);
-
+        final SshClient.Factory factory = i
+                .getInstance(SshClient.Factory.class);
+        final JschSshClient ssh = JschSshClient.class.cast(factory.create(
+                HostAndPort.fromParts(
+                        node.getPrivateAddresses().toArray()[0].toString(),
+                        node.getLoginPort()), credentials));
         ssh.connect();
         disconnect();
         return ssh;
