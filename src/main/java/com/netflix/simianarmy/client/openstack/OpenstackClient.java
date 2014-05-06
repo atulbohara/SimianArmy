@@ -168,12 +168,13 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		// includeRoot doesn't do anything right now because I'm not sure how Openstack handles root volumes on attached storage
 		Validate.notEmpty(instanceId);
 		List<String> out = new ArrayList<String>();
+		connect();
 		VolumeAttachmentApi volumeAttachmentApi = nova.getVolumeAttachmentExtensionForZone(connection.getZone()).get();
 
 		for(VolumeAttachment volumeAttachment: volumeAttachmentApi.listAttachmentsOnServer(instanceId))	{
 			out.add(volumeAttachment.getVolumeId());
 		}
-		
+		disconnect();
 		return out;
 	}
 
@@ -189,6 +190,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
 		if(!result) {
 			LOGGER.error("Error detaching volume " + volumeId + " from " + instanceId);
 		}
+		disconnect();
 	}
 
 	/** {@inheritDoc} */
