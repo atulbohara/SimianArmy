@@ -73,7 +73,10 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                 context = cb.buildView(ComputeServiceContext.class);
                 compute = context.getComputeService();
                 nova = cb.buildApi(NovaApi.class);
-                cinder = cb.buildApi(CinderApi.class);
+                cinder = ContextBuilder.newBuilder("openstack-cinder")
+                        .endpoint(connection.getUrl()) //"http://141.142.237.5:5000/v2.0/"
+                        .credentials(identity, connection.getPassword())
+                        .modules(modules).buildApi(CinderApi.class);
             }
         } catch(NoSuchElementException e) {
             throw new AmazonServiceException("Cannot connect to OpenStack", e);
