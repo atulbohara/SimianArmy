@@ -1,7 +1,5 @@
 package com.netflix.simianarmy.client.openstack;
 
-import static com.google.inject.name.Names.bindProperties;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,10 +54,14 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
 import com.netflix.simianarmy.client.aws.AWSClient;
 
+/**
+ * The Class OpenstackClient. Openstack client interface.
+ */
 public class OpenstackClient extends AWSClient implements CloudClient {
 
     private static final Logger LOGGER = LoggerFactory
@@ -72,12 +74,12 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     private ComputeServiceContext context = null;
     private Access access;
     private CinderApi cinder = null;
-    private HashMap<String, ArrayList<String> > endpoints;
+    private HashMap<String, ArrayList<String>> endpoints;
 
     /**
      * Create the specific Client from the given connection information.
-     * 
-     * @param the
+     *
+     * @param conn
      *            connection parameters
      */
     public OpenstackClient(final OpenstackServiceConnection conn) {
@@ -86,14 +88,14 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     }
 
     /**
-     * Connect to the Openstack services
-     * 
+     * Connect to the Openstack services.
+     *
      * @throws AmazonServiceException
      */
     protected void connect() throws AmazonServiceException {
         try {
             final Iterable<Module> modules = ImmutableSet
-                    .<Module> of(new SLF4JLoggingModule());
+                    .<Module>of(new SLF4JLoggingModule());
             final String identity = connection.getTenantName() + ":"
                     + connection.getUserName(); // tenantName:userName
             final ContextBuilder cb = ContextBuilder
@@ -119,13 +121,13 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                     // "http://141.142.237.5:5000/v2.0/"
                     .credentials(identity, connection.getPassword())
                     .modules(modules).buildApi(CinderApi.class);
-            endpoints = new HashMap<String, ArrayList<String> >();
+            endpoints = new HashMap<String, ArrayList<String>>();
             for (final Service service : access) {
                 // System.out.println(" Service = " + service.getName());
-            	endpoints.put(service.getName(), new ArrayList<String>());
-                for(final Endpoint endpoint: service)
-                {
-                	endpoints.get(service.getName()).add(endpoint.getPublicURL().toString());
+                endpoints.put(service.getName(), new ArrayList<String>());
+                for (final Endpoint endpoint : service) {
+                    endpoints.get(service.getName()).add(
+                            endpoint.getPublicURL().toString());
                 }
             }
 
@@ -135,7 +137,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     }
 
     /**
-     * Disconnect from the Openstack services
+     * Disconnect from the Openstack services.
      */
     protected void disconnect() {
         try {
@@ -152,12 +154,16 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                     + e.getMessage());
         }
     }
-    
-    public HashMap<String, ArrayList<String>> getEndpoints()
-    {
-    	return endpoints;
+
+    /**
+     * Get all API endpoints for the Openstack services.
+     *
+     * @return endpoints The endpoints
+     */
+    public HashMap<String, ArrayList<String>> getEndpoints() {
+        return endpoints;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public void terminateInstance(final String instanceId) {
@@ -350,7 +356,15 @@ public class OpenstackClient extends AWSClient implements CloudClient {
         }
     }
 
-    // This assumes you have already done a call to connect()
+    /**
+     * Remove an instance from a security group (This assumes you have already
+     * done a call to connect()).
+     *
+     * @param instanceId
+     *            Instance identifier
+     * @param groupName
+     *            Group name
+     */
     private void removeSecurityGroupFromInstanceByName(final String instanceId,
             final String groupName) {
         final ServerWithSecurityGroups serverWithSG = nova
@@ -363,7 +377,15 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                 "removeSecurityGroup");
     }
 
-    // This assumes you have already done a call to connect()
+    /**
+     * Add an instance to a security group (This assumes you have already done a
+     * call to connect()).
+     *
+     * @param instanceId
+     *            Instance identifier
+     * @param groupId
+     *            Group identifier
+     */
     private void addSecurityGroupToInstanceById(final String instanceId,
             final String groupId) {
         final SecurityGroupApi v = nova.getSecurityGroupExtensionForZone(
@@ -372,7 +394,15 @@ public class OpenstackClient extends AWSClient implements CloudClient {
         addSecurityGroupToInstanceByName(instanceId, groupName);
     }
 
-    // This assumes you have already done a call to connect()
+    /**
+     * Add an instance to a security group (This assumes you have already done a
+     * call to connect()).
+     *
+     * @param instanceId
+     *            Instance identifier
+     * @param groupName
+     *            Group name
+     */
     private void addSecurityGroupToInstanceByName(final String instanceId,
             final String groupName) {
         final ServerWithSecurityGroups serverWithSG = nova
@@ -385,11 +415,21 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                 "addSecurityGroup");
     }
 
-    // This assumes you have already done a call to connect()
+    /**
+     * Change the security groups of an instance (This assumes you have already
+     * done a call to connect()).
+     *
+     * @param instanceId
+     *            Instance identifier
+     * @param groupName
+     *            Group name
+     * @param operation
+     *            Operation that has to be performed on the instance
+     */
     private void modifySecurityGroupOnInstanceByName(final String instanceId,
             final String groupName, final String operation) {
-        String endpoint = (String) endpoints.get("nova").toArray()[0];
-        
+        final String endpoint = (String) endpoints.get("nova").toArray()[0];
+
         final HashMultimap<String, String> headers = HashMultimap.create();
         headers.put("Accept", "application/json");
         headers.put("Content-Type", "application/json");
@@ -420,7 +460,7 @@ public class OpenstackClient extends AWSClient implements CloudClient {
                 new AbstractModule() {
                     @Override
                     protected void configure() {
-                        bindProperties(binder(), new Properties());
+                        Names.bindProperties(binder(), new Properties());
                     }
                 });
         final ComputeService computeService = getJcloudsComputeService();
@@ -442,6 +482,15 @@ public class OpenstackClient extends AWSClient implements CloudClient {
         return ssh;
     }
 
+    /**
+     * Get meta-data for Node.
+     *
+     * @param computeService
+     *            Openstack Nova ComputeService
+     * @param jcloudsId
+     *            Instance identifier
+     * @return NodeMetaData
+     */
     private NodeMetadata getJcloudsNode(final ComputeService computeService,
             final String jcloudsId) {
         // Work around a jclouds bug / documentation issue...
@@ -480,8 +529,8 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     }
 
     /**
-     * Get NovaApi object
-     * 
+     * Get NovaApi object.
+     *
      * @return NovaApi
      */
     public NovaApi getNovaApi() {
@@ -489,8 +538,8 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     }
 
     /**
-     * Get the Service Connection
-     * 
+     * Get the Service Connection.
+     *
      * @return OpenstackServiceConnection
      */
     public OpenstackServiceConnection getServiceConnection() {
@@ -498,3 +547,4 @@ public class OpenstackClient extends AWSClient implements CloudClient {
     }
 
 }
+

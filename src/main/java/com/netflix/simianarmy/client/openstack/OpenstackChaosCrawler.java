@@ -19,7 +19,7 @@ public class OpenstackChaosCrawler extends ASGChaosCrawler implements
 
     /**
      * Instantiate the OpenstackChaosCrawler (it mimics ASGChaosCrawler).
-     * 
+     *
      * @param client
      *            An OpenstackClient
      */
@@ -46,3 +46,4 @@ public class OpenstackChaosCrawler extends ASGChaosCrawler implements
         return list;
     }
 }
+
