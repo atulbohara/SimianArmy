@@ -26,7 +26,7 @@ public class ByzantineChaosType extends ScriptChaosType {
         SshClient ssh = instance.connectSsh();
 
         String filename = getKey().toLowerCase();
-        URL url = Resources.getResource(ScriptChaosType.class, "/binaries/" + filename);
+        URL url = Resources.getResource(ScriptChaosType.class, "/scripts/" + filename);
         String script;
         try {
             script = Resources.toString(url, Charsets.UTF_8);
